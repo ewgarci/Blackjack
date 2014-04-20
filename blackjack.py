@@ -172,13 +172,26 @@ if __name__ == "__main__":
     table = Table()
     deck = Deck(6)
     while True:
-        name = raw_input("What is your name? ").strip()
-        if name == "":
-            print "Invalid Name"
+        players = 0
+        try:
+           players  = int(raw_input("How many players? (1-6) "))
+        except ValueError:
+            print "incorrect input"
+            next
+        if players > 6 or players < 1:
+            print "Invalid number of players"
         else:
             break
-    mainPlayer = Player(100, name, Role.HUMAN)
-    table.players.append(mainPlayer)
+
+    for i in range(players):
+        while True:
+            name = raw_input("Player " + str(i) + ": What is your name? ").strip()
+            if name == "":
+                print "Invalid Name"
+            else:
+                newPlayer = Player(100, name, Role.HUMAN)
+                table.players.append(newPlayer)
+                break
 
     while True:
         table.roundNumber += 1
@@ -188,30 +201,30 @@ if __name__ == "__main__":
                 while True:
                     if player.purse == 0:
                         print player.name + ": No More Chips!"
-                        print player.name + ": You Lose!"
-                        exit()
+                        print player.name + ": Sitting out"
+                        break
 
                     bet = 0
                     try:
                         bet = int(raw_input(player.name + ": What is your bet amount? (" + str(player.purse) + " chips available) "))
                     except ValueError:
-                        print "incorrect input"
+                        print player.name + ": Incorrect input"
                         next
 
                     if bet > player.purse:
-                        print "insufficient funds"
+                        print player.name + ": Insufficient funds"
                         next
                     elif bet == 0:
-                        print "sitting out"
+                        print player.name + ": Sitting out"
                         player.bet = bet
                         break
                     elif bet > 0:
                         player.bet = bet
-                        print "betting " + str(bet)
+                        print player.name + ":Betting " + str(bet)
                         table.activePlayers.append(player)
                         break
                     else:
-                        print "incorrect input"
+                        print player.name + ": Incorrect input"
                         next
             if len(table.activePlayers) != 0:
                 table.state = States.DEALING
@@ -236,6 +249,7 @@ if __name__ == "__main__":
                 while True:
                     action = 0
                     try:
+                        print player.name + ": " + str(player.hand) + " = " + str(player.hand.score)
                         action = int(raw_input(player.name + ": What is your Action? (Enter number)\n1.) Stand\n2.) Deal\n "))
                     except ValueError:
                         print "incorrect input"
