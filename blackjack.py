@@ -93,7 +93,7 @@ class Hand:
         return '[%s]' % ', '.join(map(str, self.cards)) 
 
 class Deck:
-    def __init__(self, numberOfDecks = 1):
+    def __init__(self, numberOfDecks = 8):
         self.numberOfDecks = numberOfDecks
         self.__deck = []
         self.__deckIndex = 0
@@ -124,29 +124,139 @@ class Deck:
     def __str__(self):
         return '[%s]' % ', '.join(map(str, self.__deck)) 
 
-class States(Enum):
-    BETTING = 1,
-    DEALING = 2,
-    PLAYER_TURN = 3,
-    DEALER_TURN = 4,
-    ROUND_END = 5
-
 class Role(Enum):
     COMPUTER = 1,
     HUMAN = 2
 
 class Table:
-    def __init__(self):
+    def __init__(self, numberOfDecks = 8, roundsBeforeShuffling = 5):
         self.players = []
         self.activePlayers = []
         self.purse = 0
-        self.state = States.BETTING
         self.hand = Hand()
-        self.roundNumber = 0
+        self.roundNumber = 1
+        self.roundsBeforeShuffling = roundsBeforeShuffling
+        self.deck = Deck(numberOfDecks)
+        self.deck.shuffle()
+        self.numberOfPlayers = 0
+
+    def askNumberOfPlayers(self):
+        while True:
+            players = 0
+            try:
+               players  = int(raw_input("How many players? (1-6) "))
+            except ValueError:
+                print "Incorrect input"
+                next
+            if players > 6 or players < 1:
+                print "Invalid number of players"
+            else:
+                self.numberOfPlayers = players
+                return
+
+    def askPlayersInfo(self):
+        for i in range(self.numberOfPlayers):
+            while True:
+                name = raw_input("Player " + str(i+1) + ": What is your name? ").strip()
+                if name == "":
+                    print "Player " + str(i+1) + "Invalid Name"
+                else:
+                    newPlayer = Player(100, name, Role.HUMAN)
+                    self.players.append(newPlayer)
+                    break
+
+    def askPlayersBets(self):
+        for player in self.players:
+            while True:
+                bet = player.askPlayerBet()
+                valid = self.verifyBet(bet, player)
+                if valid:
+                    break
+
+    def verifyBet(self, bet, player):
+        if bet > player.purse:
+            player.printStr("Insufficient funds")
+            return False
+        elif bet <= 0:
+            player.printStr("Bet must be greater than 0")
+            return False
+        else:
+            player.bet = bet
+            player.printStr("Betting " + str(bet))
+            self.activePlayers.append(player)
+            return True
+
+    def askPlayersActions(self):
+        for player in self.activePlayers:
+            while True:
+                action = player.askPlayerAction(player)
+                done = self.verifyAction(action, player)
+                if done:
+                    break
+
+    def verifyAction(self, action, player):
+        if action == 1:
+            print "Standing"
+            return True
+        elif action == 2:
+            player.hand.add(self.deck.getCard())
+            player.printState()
+            if player.hand.score == -1:
+                return True
+            else:
+                return False
+        else:
+            player.printStr("Incorrect Action")
+            return False
+
+    def playDealer(self):
+        self.printDealerState()
+        while self.hand.score < 17:
+            self.hand.add(self.deck.getCard())
+            self.printDealerState()
+            if table.hand.score == -1:
+                break
+
+    def concludeRound(self):
+        for player in table.activePlayers:
+            self.evaluatePlayerBet(player)
+            player.resetRound()
+            self.removeLosingPlayer(player)
+        table.resetRound()
+
+    def evaluatePlayerBet(self, player):
+        if player.hand.score == -1 or player.hand.score < self.hand.score:
+            player.purse -= player.bet
+            self.purse += player.bet
+        elif player.hand.score == table.hand.score:
+            pass
+        else: 
+            player.purse += player.bet
+            self.purse -= player.bet
+
+    def removeLosingPlayer(self, player):
+        if player.purse == 0:
+            player.printStr("No More Chips!")
+            table.players.remove(player)
+            player.printStr("Removed from Game")
 
     def resetRound(self):
         del table.activePlayers[:]
         self.hand.empty()
+        self.roundNumber += 1
+        if self.roundNumber % self.roundsBeforeShuffling == 0:
+            deck.shuffle()
+
+    def checkGameEnd(self):
+        return len(table.activePlayers) == 0
+
+    def getPlayer(self, name):
+        player = None
+        for p in self.activePlayers:
+            if p.name == name:
+                player = p
+                break
+        return player
 
     def getHighestHand(self):
         highestHand = self.hand.score
@@ -155,6 +265,27 @@ class Table:
             if player.hand.score > highestHand:
                 highestHand = player.hand.score
         return highestHand
+
+    def dealInitialHands(self):
+        for _ in range(2):
+            for player in self.activePlayers:
+                player.hand.add(self.deck.getCard())
+            self.hand.add(self.deck.getCard())
+        self.printPlayersStates()
+        self.printDealerConcealedState()
+
+    def printStr(self, msg):
+        print "Dealer: " + msg
+
+    def printDealerState(self):
+        self.printStr(str(self.hand) + " = " + str(self.hand.score))
+
+    def printPlayersStates(self):
+        for player in self.activePlayers:
+            player.printState()
+
+    def printDealerConcealedState(self):
+        self.printStr("[" + str(self.hand.cards[0]) + ", CONCEALED]")
 
 class Player:
     def __init__(self, purse, name, role):
@@ -168,126 +299,49 @@ class Player:
         self.hand.empty()
         self.bet = 0
 
+    def askPlayerBet(self):
+        while True:
+            bet = 0
+            try:
+                bet = int(raw_input(self.name + ": What is your bet amount? (" + str(self.purse) + " chips available) "))
+            except ValueError:
+                player.printStr("Incorrect Input")
+                next
+            else:
+                return bet
+
+    def askPlayerAction(self, player):
+        while True:
+            action = 0
+            try:
+                player.printState()
+                action = int(raw_input(player.name + ": What is your Action? (Enter number)\n1.) Stand\n2.) Hit\n "))
+            except ValueError:
+                print "incorrect input"
+            else:
+                return action
+
+    def printStr(self, msg):
+        print self.name + ": " + msg
+
+    def printState(self):
+        self.printStr(str(self.hand) + " = " + str(self.hand.score))
+
+    def printConcealedState(self):
+        self.printStr("[" + str(self.hand.cards[0]) + ", CONCEALED]")
+
+
 if __name__ == "__main__":
     table = Table()
-    deck = Deck(6)
-    while True:
-        players = 0
-        try:
-           players  = int(raw_input("How many players? (1-6) "))
-        except ValueError:
-            print "incorrect input"
-            next
-        if players > 6 or players < 1:
-            print "Invalid number of players"
-        else:
-            break
-
-    for i in range(players):
-        while True:
-            name = raw_input("Player " + str(i) + ": What is your name? ").strip()
-            if name == "":
-                print "Invalid Name"
-            else:
-                newPlayer = Player(100, name, Role.HUMAN)
-                table.players.append(newPlayer)
-                break
+    table.askNumberOfPlayers()
+    table.askPlayersInfo()
 
     while True:
-        table.roundNumber += 1
-        deck.shuffle()
-        if table.state == States.BETTING:
-            for player in table.players:
-                while True:
-                    if player.purse == 0:
-                        print player.name + ": No More Chips!"
-                        print player.name + ": Sitting out"
-                        break
-
-                    bet = 0
-                    try:
-                        bet = int(raw_input(player.name + ": What is your bet amount? (" + str(player.purse) + " chips available) "))
-                    except ValueError:
-                        print player.name + ": Incorrect input"
-                        next
-
-                    if bet > player.purse:
-                        print player.name + ": Insufficient funds"
-                        next
-                    elif bet == 0:
-                        print player.name + ": Sitting out"
-                        player.bet = bet
-                        break
-                    elif bet > 0:
-                        player.bet = bet
-                        print player.name + ":Betting " + str(bet)
-                        table.activePlayers.append(player)
-                        break
-                    else:
-                        print player.name + ": Incorrect input"
-                        next
-            if len(table.activePlayers) != 0:
-                table.state = States.DEALING
-
-        if table.state == States.DEALING:
-            for player in table.activePlayers:
-                player.hand.add(deck.getCard())
-            table.hand.add(deck.getCard())
-
-            for player in table.activePlayers:
-                player.hand.add(deck.getCard())
-            table.hand.add(deck.getCard())
-
-            for player in table.activePlayers:
-                print player.name + ": " + str(player.hand) + " = " + str(player.hand.score)
-
-            print "dealer: [" + str(table.hand.cards[0]) + ", CONCEALED]"
-            table.state = States.PLAYER_TURN
-
-        if table.state == States.PLAYER_TURN:
-            for player in table.activePlayers:
-                while True:
-                    action = 0
-                    try:
-                        print player.name + ": " + str(player.hand) + " = " + str(player.hand.score)
-                        action = int(raw_input(player.name + ": What is your Action? (Enter number)\n1.) Stand\n2.) Deal\n "))
-                    except ValueError:
-                        print "incorrect input"
-                        next
-
-                    if action == 1:
-                        print "Standing"
-                        break
-                    elif action == 2:
-                        player.hand.add(deck.getCard())
-                        print player.name + ": " + str(player.hand) + " = " + str(player.hand.score)
-                        if player.hand.score == -1:
-                            break
-                    else:
-                        print "incorrect input"
-                        next
-            table.state = States.DEALER_TURN
-
-        if table.state == States.DEALER_TURN:
-            print "Dealer: " + str(table.hand) + " = " + str(table.hand.score)
-            while table.hand.score < 17:
-                table.hand.add(deck.getCard())
-                print "Dealer: " + str(table.hand) + " = " + str(table.hand.score)
-                if table.hand.score == -1:
-                    break
-            table.state = States.ROUND_END
-
-        if table.state == States.ROUND_END:
-            for player in table.activePlayers:
-                if player.hand.score == -1 or player.hand.score < table.hand.score:
-                    player.purse -= player.bet
-                    table.purse += player.bet
-                elif player.hand.score == table.hand.score:
-                    pass
-                else: 
-                    player.purse += player.bet
-                    table.purse -= player.bet
-                player.resetRound()
-            table.resetRound()
-            table.state = States.BETTING
-
+        table.askPlayersBets()
+        table.dealInitialHands()
+        table.askPlayersActions()
+        table.playDealer()
+        table.concludeRound()
+        if table.checkGameEnd():
+            print "The Casino took all your Money!"
+            exit(0)

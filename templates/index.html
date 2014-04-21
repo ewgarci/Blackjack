@@ -7,8 +7,14 @@
     <script type="text/javascript" charset="utf-8">
         $(document).ready(function(){
             var socket = io.connect('http://' + document.domain + ':' + location.port + '/test');
-            socket.on('my response', function(msg) {
+            socket.on('serverResponse', function(msg) {
+                if ('user' in msg){
+                $('#log').append('<br>' + msg.user + ': ' + msg.data);
+                }
+                else
+                {
                 $('#log').append('<br>Received #' + msg.count + ': ' + msg.data);
+                }
             });
             $('form#emit').submit(function(event) {
                 socket.emit('my event', {data: $('#emit_data').val()});
