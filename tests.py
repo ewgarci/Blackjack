@@ -1,4 +1,4 @@
-#!flask/bin/python
+#!venv/bin/python
 # -*- coding: utf-8 -*-
 import unittest, copy
 from blackjack import Player, Table, Role, Deck, Hand, Suits, CardValues, suitDict, cardValues, Card
