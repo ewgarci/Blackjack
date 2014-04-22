@@ -5,7 +5,7 @@ from blackjack import Player, Table, Role, Deck, Hand, Suits, CardValues, suitDi
 from coverage import coverage
 from collections import Counter
 
-cov = coverage(branch = True, omit = ['flask/*', 'tests.py'])
+cov = coverage(branch = True, omit = ['venv/*', 'tests.py'])
 cov.start()
 
 class TestDeck(unittest.TestCase):
@@ -45,11 +45,11 @@ class TestDeck(unittest.TestCase):
         a2 = []
         deck = Deck(5)
         for card in deck._Deck__deck:
-            a1.append(card.value + card.suit)
+            a1.append(card)
         deck.shuffle()
 
         for card in deck._Deck__deck:
-            a2.append(card.value + card.suit)
+            a2.append(card)
 
         different = False
         for i in range(len(a1)):
@@ -70,10 +70,10 @@ class TestDeck(unittest.TestCase):
         deck2.shuffle()
 
         for card in deck._Deck__deck:
-            a1.append(card.value + card.suit)
+            a1.append(card)
 
         for card in deck2._Deck__deck:
-            a2.append(card.value + card.suit)
+            a2.append(card)
 
         different = False
         for i in range(len(a1)):
@@ -93,7 +93,7 @@ class TestDeck(unittest.TestCase):
             a.append(card)
 
         for i in range(len(deck._Deck__deck)):
-            assert(a[i].value + a[i].suit == deck._Deck__deck[i].value + deck._Deck__deck[i].suit)
+            assert(a[i] == deck._Deck__deck[i])
 
 
     def test_getCardEnd(self):
@@ -273,6 +273,221 @@ class TestDeck(unittest.TestCase):
         assert(h.score == 0)
         assert(len(h.cards) == 0)
         assert(h.containsAce == False)
+
+    def test_dealInitialHands(self):
+        """Each player should recive an card from the first to dealer in the initial deal
+            This process should happend twice """
+
+        table = Table()
+        newPlayer = Player(0, '1', Role.HUMAN)
+        table.activePlayers.append(newPlayer)
+        newPlayer = Player(20, '2', Role.HUMAN)
+        newPlayer.bet = 20
+        table.activePlayers.append(newPlayer)
+        newPlayer = Player(40, '3', Role.HUMAN)
+        newPlayer.bet = 20
+        table.activePlayers.append(newPlayer)
+
+        table.dealInitialHands()
+
+        for player in table.activePlayers:
+            assert(len(player.hand.cards) == 2)
+
+        for i in range(len(table.activePlayers)):
+            assert(table.activePlayers[i].hand.cards[0] == table.deck._Deck__deck[i])
+            assert(table.activePlayers[i].hand.cards[1] == table.deck._Deck__deck[i + 4])
+
+        assert(table.hand.cards[0] == table.deck._Deck__deck[3])
+        assert(table.hand.cards[1] == table.deck._Deck__deck[7])
+    
+    def test_playDealer(self):
+        """the dealer should draw cards until his hand is 17 or greater"""
+        table = Table()
+        newPlayer = Player(0, '1', Role.HUMAN)
+        newPlayer.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+        newPlayer.hand.add(Card(CardValues.FOUR, Suits.DIAMONDS))
+        table.activePlayers.append(newPlayer)
+
+        table.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+        table.hand.add(Card(CardValues.SIX, Suits.DIAMONDS))
+
+        table.deck._Deck__deck[0] = Card(CardValues.ACE, Suits.DIAMONDS)
+
+        table.playDealer()
+        assert(len(table.hand.cards) == 3)
+        assert(table.hand.score == 17)
+
+    def test_playDealer_2(self):
+        """the dealer should draw cards until his hand is 17 or greater"""
+        table = Table()
+        newPlayer = Player(0, '1', Role.HUMAN)
+        newPlayer.hand.add(Card(CardValues.FOUR, Suits.DIAMONDS))
+        newPlayer.hand.add(Card(CardValues.TWO, Suits.DIAMONDS))
+        table.activePlayers.append(newPlayer)
+
+        table.hand.add(Card(CardValues.ACE, Suits.DIAMONDS))
+        table.hand.add(Card(CardValues.SIX, Suits.DIAMONDS))
+
+        table.deck._Deck__deck[0] = Card(CardValues.TWO, Suits.DIAMONDS)
+
+        table.playDealer()
+        assert(len(table.hand.cards) == 2)
+        assert(table.hand.score == 17)
+
+    def test_playDealer_3(self):
+        """the dealer should draw cards until his hand is 17 or greater"""
+        table = Table()
+        newPlayer = Player(0, '1', Role.HUMAN)
+        newPlayer.hand.add(Card(CardValues.TEN, Suits.DIAMONDS))
+        newPlayer.hand.add(Card(CardValues.EIGHT, Suits.DIAMONDS))
+        table.activePlayers.append(newPlayer)
+
+        table.hand.add(Card(CardValues.TEN, Suits.DIAMONDS))
+        table.hand.add(Card(CardValues.EIGHT, Suits.DIAMONDS))
+
+        table.deck._Deck__deck[0] = Card(CardValues.TWO, Suits.DIAMONDS)
+
+        table.playDealer()
+        assert(len(table.hand.cards) == 2)
+        assert(table.hand.score == 18)
+
+    def test_concludeRound(self):
+        """at the end of the round  all players should be deleted properly and reset"""
+        table = Table()
+        newPlayer = Player(0, '1', Role.HUMAN)
+        table.activePlayers.append(newPlayer)
+        newPlayer = Player(20, '2', Role.HUMAN)
+        newPlayer.bet = 20
+        table.activePlayers.append(newPlayer)
+        newPlayer = Player(40, '3', Role.HUMAN)
+        newPlayer.bet = 20
+        table.activePlayers.append(newPlayer)
+
+        for player in table.activePlayers:
+            player.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+            player.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+            player.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+        
+        newPlayer = Player(40, '4', Role.HUMAN)
+        newPlayer.bet = 20
+        newPlayer.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+        newPlayer.hand.add(Card(CardValues.ACE, Suits.DIAMONDS))
+        table.activePlayers.append(newPlayer)
+
+        table.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+        table.hand.add(Card(CardValues.KING, Suits.DIAMONDS))
+
+        table.concludeRound()
+        assert(len(table.activePlayers) == 2)
+        assert (table.activePlayers[0].name == '3')
+        assert (table.activePlayers[1].name == '4')
+        assert (len(table.activePlayers[0].hand.cards) == 0)
+        assert (table.activePlayers[0].purse == 20)
+        assert (table.activePlayers[1].purse == 60)
+        assert (len(table.activePlayers[1].hand.cards) == 0)
+
+    def test_concludeRoundPush(self):
+        """at the end of the round  all players should be deleted properly and reset"""
+        table = Table()
+        newPlayer = Player(20, '1', Role.HUMAN)
+        newPlayer.bet = 20
+        table.activePlayers.append(newPlayer)
+
+        for player in table.activePlayers:
+            player.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+            player.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+
+        table.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+        table.hand.add(Card(CardValues.KING, Suits.DIAMONDS))
+
+        table.concludeRound()
+        assert(len(table.activePlayers) == 1)
+        assert (table.activePlayers[0].name == '1')
+        assert (len(table.activePlayers[0].hand.cards) == 0)
+        assert (table.activePlayers[0].purse == 20)
+
+    def test_checkGameEnd(self):
+        """game should end when there are no active players at table"""
+        table = Table()
+        newPlayer = Player(20, '1', Role.HUMAN)
+        table.players.append(newPlayer)
+
+        assert(table.checkGameEnd() == True)
+
+
+if __name__ == '__main__':
+    try:
+        unittest.main()
+    except:
+        pass
+    cov.stop()
+    cov.save()
+    print "\n\nCoverage Report:\n"
+    cov.report()
+    cov.erase()
+    def test_concludeRound(self):
+        """at the end of the round  all players should be deleted properly and reset"""
+        table = Table()
+        newPlayer = Player(0, '1', Role.HUMAN)
+        table.activePlayers.append(newPlayer)
+        newPlayer = Player(20, '2', Role.HUMAN)
+        newPlayer.bet = 20
+        table.activePlayers.append(newPlayer)
+        newPlayer = Player(40, '3', Role.HUMAN)
+        newPlayer.bet = 20
+        table.activePlayers.append(newPlayer)
+
+        for player in table.activePlayers:
+            player.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+            player.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+            player.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+        
+        newPlayer = Player(40, '4', Role.HUMAN)
+        newPlayer.bet = 20
+        newPlayer.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+        newPlayer.hand.add(Card(CardValues.ACE, Suits.DIAMONDS))
+        table.activePlayers.append(newPlayer)
+
+        table.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+        table.hand.add(Card(CardValues.KING, Suits.DIAMONDS))
+
+        table.concludeRound()
+        assert(len(table.activePlayers) == 2)
+        assert (table.activePlayers[0].name == '3')
+        assert (table.activePlayers[1].name == '4')
+        assert (len(table.activePlayers[0].hand.cards) == 0)
+        assert (table.activePlayers[0].purse == 20)
+        assert (table.activePlayers[1].purse == 60)
+        assert (len(table.activePlayers[1].hand.cards) == 0)
+
+    def test_concludeRoundPush(self):
+        """at the end of the round  all players should be deleted properly and reset"""
+        table = Table()
+        newPlayer = Player(20, '1', Role.HUMAN)
+        newPlayer.bet = 20
+        table.activePlayers.append(newPlayer)
+
+        for player in table.activePlayers:
+            player.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+            player.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+
+        table.hand.add(Card(CardValues.QUEEN, Suits.DIAMONDS))
+        table.hand.add(Card(CardValues.KING, Suits.DIAMONDS))
+
+        table.concludeRound()
+        assert(len(table.activePlayers) == 1)
+        assert (table.activePlayers[0].name == '1')
+        assert (len(table.activePlayers[0].hand.cards) == 0)
+        assert (table.activePlayers[0].purse == 20)
+
+    def test_checkGameEnd(self):
+        """game should end when there are no active players at table"""
+        table = Table()
+        newPlayer = Player(20, '1', Role.HUMAN)
+        table.players.append(newPlayer)
+
+        assert(table.checkGameEnd() == True)
+
 
 if __name__ == '__main__':
     try:

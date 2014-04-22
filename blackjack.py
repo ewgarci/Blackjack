@@ -56,6 +56,9 @@ class Card:
     def __str__(self):
         return self.value + suitDict[self.suit]
 
+    def __eq__(self, other): 
+       return self.__dict__ == other.__dict__
+
 class Hand:
     def __init__(self):
         self.cards = []
@@ -190,6 +193,14 @@ class Table:
             player.printStr("Betting " + str(bet))
             return True
 
+    def dealInitialHands(self):
+        for _ in range(2):
+            for player in self.activePlayers:
+                player.hand.add(self.deck.getCard())
+            self.hand.add(self.deck.getCard())
+        self.printPlayersStates()
+        self.printDealerConcealedState()
+
     def askPlayersActions(self):
         for player in self.activePlayers:
             while True:
@@ -219,16 +230,16 @@ class Table:
         while self.hand.score < 17:
             self.hand.add(self.deck.getCard())
             self.printDealerState()
-            if table.hand.score == -1:
+            if self.hand.score == -1:
                 break
 
     def concludeRound(self):
-        for i in xrange(len(table.activePlayers) - 1, -1, -1):
-            player = table.activePlayers[i]
+        for i in xrange(len(self.activePlayers) - 1, -1, -1):
+            player = self.activePlayers[i]
             self.evaluatePlayerBet(player)
             player.resetRound()
             self.removeLosingPlayer(player,i)
-        table.resetRound()
+        self.resetRound()
 
     def evaluatePlayerBet(self, player):
         if player.hand.score == -1 or player.hand.score < self.hand.score:
@@ -236,17 +247,17 @@ class Table:
             self.purse += player.bet
             player.printStr("Lost " + str(player.bet))
             player.losses += 1
-            table.wins += 1
-        elif player.hand.score == table.hand.score:
+            self.wins += 1
+        elif player.hand.score == self.hand.score:
             player.printStr("Pushed")
             player.pushes += 1
-            table.pushes += 1
+            self.pushes += 1
         else: 
             player.printStr("Won " + str(player.bet))
             player.purse += player.bet
             self.purse -= player.bet
             player.wins += 1
-            table.losses += 1
+            self.losses += 1
 
     def removeLosingPlayer(self, player, i):
         if player.purse == 0:
@@ -261,31 +272,7 @@ class Table:
             self.deck.shuffle()
 
     def checkGameEnd(self):
-        return len(table.activePlayers) == 0
-
-    def getPlayer(self, name):
-        player = None
-        for p in self.activePlayers:
-            if p.name == name:
-                player = p
-                break
-        return player
-
-    def getHighestHand(self):
-        highestHand = self.hand.score
-        for player in self.activePlayers:
-            handScore = player.hand.score
-            if player.hand.score > highestHand:
-                highestHand = player.hand.score
-        return highestHand
-
-    def dealInitialHands(self):
-        for _ in range(2):
-            for player in self.activePlayers:
-                player.hand.add(self.deck.getCard())
-            self.hand.add(self.deck.getCard())
-        self.printPlayersStates()
-        self.printDealerConcealedState()
+        return len(self.activePlayers) == 0
 
     def printStr(self, msg):
         print "Dealer: " + msg
@@ -317,6 +304,7 @@ class Player:
         self.name = name
         self.role = role
         self.hand = Hand()
+        self.bet = 0
         self.pushes = 0
         self.losses = 0
         self.wins = 0
@@ -341,8 +329,8 @@ class Player:
         while True:
             action = 0
             try:
-                player.printState()
-                action = int(raw_input(player.name + ": What is your Action?" \
+                self.printState()
+                action = int(raw_input(self.name + ": What is your Action?" \
                        + " (Enter number)\n1.) Stand\n2.) Hit\n "))
             except ValueError:
                 self.printStr("Incorrect input")
