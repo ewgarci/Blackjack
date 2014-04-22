@@ -1,4 +1,4 @@
-blackjack
+Blackjack
 ===============
 
 A Blackjack game using Python
