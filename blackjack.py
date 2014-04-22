@@ -139,6 +139,9 @@ class Table:
         self.deck = Deck(numberOfDecks)
         self.deck.shuffle()
         self.numberOfPlayers = 0
+        self.pushes = 0
+        self.losses = 0
+        self.wins = 0
 
     def askNumberOfPlayers(self):
         while True:
@@ -157,16 +160,18 @@ class Table:
     def askPlayersInfo(self):
         for i in range(self.numberOfPlayers):
             while True:
-                name = raw_input("Player " + str(i+1) + ": What is your name? ").strip()
+                name = raw_input("Player " + str(i+1) + 
+                        ": What is your name? ").strip()
                 if name == "":
                     print "Player " + str(i+1) + "Invalid Name"
                 else:
                     newPlayer = Player(100, name, Role.HUMAN)
+                    self.activePlayers.append(newPlayer)
                     self.players.append(newPlayer)
                     break
 
     def askPlayersBets(self):
-        for player in self.players:
+        for player in self.activePlayers:
             while True:
                 bet = player.askPlayerBet()
                 valid = self.verifyBet(bet, player)
@@ -183,7 +188,6 @@ class Table:
         else:
             player.bet = bet
             player.printStr("Betting " + str(bet))
-            self.activePlayers.append(player)
             return True
 
     def askPlayersActions(self):
@@ -202,6 +206,7 @@ class Table:
             player.hand.add(self.deck.getCard())
             player.printState()
             if player.hand.score == -1:
+                player.printStr("Bust!!!")
                 return True
             else:
                 return False
@@ -218,34 +223,42 @@ class Table:
                 break
 
     def concludeRound(self):
-        for player in table.activePlayers:
+        for i in xrange(len(table.activePlayers) - 1, -1, -1):
+            player = table.activePlayers[i]
             self.evaluatePlayerBet(player)
             player.resetRound()
-            self.removeLosingPlayer(player)
+            self.removeLosingPlayer(player,i)
         table.resetRound()
 
     def evaluatePlayerBet(self, player):
         if player.hand.score == -1 or player.hand.score < self.hand.score:
             player.purse -= player.bet
             self.purse += player.bet
+            player.printStr("Lost " + str(player.bet))
+            player.losses += 1
+            table.wins += 1
         elif player.hand.score == table.hand.score:
-            pass
+            player.printStr("Pushed")
+            player.pushes += 1
+            table.pushes += 1
         else: 
+            player.printStr("Won " + str(player.bet))
             player.purse += player.bet
             self.purse -= player.bet
+            player.wins += 1
+            table.losses += 1
 
-    def removeLosingPlayer(self, player):
+    def removeLosingPlayer(self, player, i):
         if player.purse == 0:
             player.printStr("No More Chips!")
-            table.players.remove(player)
             player.printStr("Removed from Game")
+            del self.activePlayers[i]
 
     def resetRound(self):
-        del table.activePlayers[:]
         self.hand.empty()
         self.roundNumber += 1
         if self.roundNumber % self.roundsBeforeShuffling == 0:
-            deck.shuffle()
+            self.deck.shuffle()
 
     def checkGameEnd(self):
         return len(table.activePlayers) == 0
@@ -277,12 +290,23 @@ class Table:
     def printStr(self, msg):
         print "Dealer: " + msg
 
+    def printNewRound(self):
+        print ""
+        print "*************************************"
+        print "*             Round  {0}              *".format(self.roundNumber)
+        print "*************************************"
+        print ""
+
     def printDealerState(self):
         self.printStr(str(self.hand) + " = " + str(self.hand.score))
 
     def printPlayersStates(self):
         for player in self.activePlayers:
             player.printState()
+
+    def printEndingStats(self):
+        for player in self.players:
+            player.printStats()
 
     def printDealerConcealedState(self):
         self.printStr("[" + str(self.hand.cards[0]) + ", CONCEALED]")
@@ -293,7 +317,9 @@ class Player:
         self.name = name
         self.role = role
         self.hand = Hand()
-        self.bet = 0
+        self.pushes = 0
+        self.losses = 0
+        self.wins = 0
 
     def resetRound(self):
         self.hand.empty()
@@ -303,9 +329,10 @@ class Player:
         while True:
             bet = 0
             try:
-                bet = int(raw_input(self.name + ": What is your bet amount? (" + str(self.purse) + " chips available) "))
+                bet = int(raw_input(self.name + ": What is your bet amount? ("
+                    + str(self.purse) + " chips available): "))
             except ValueError:
-                player.printStr("Incorrect Input")
+                self.printStr("Incorrect Input")
                 next
             else:
                 return bet
@@ -315,9 +342,10 @@ class Player:
             action = 0
             try:
                 player.printState()
-                action = int(raw_input(player.name + ": What is your Action? (Enter number)\n1.) Stand\n2.) Hit\n "))
+                action = int(raw_input(player.name + ": What is your Action?" \
+                       + " (Enter number)\n1.) Stand\n2.) Hit\n "))
             except ValueError:
-                print "incorrect input"
+                self.printStr("Incorrect input")
             else:
                 return action
 
@@ -326,6 +354,11 @@ class Player:
 
     def printState(self):
         self.printStr(str(self.hand) + " = " + str(self.hand.score))
+
+    def printStats(self):
+        self.printStr("Wins = " + str(self.wins)   \
+                + ", Losses = " + str(self.losses) \
+                + ", Pushes = " + str(self.pushes))
 
     def printConcealedState(self):
         self.printStr("[" + str(self.hand.cards[0]) + ", CONCEALED]")
@@ -337,6 +370,7 @@ if __name__ == "__main__":
     table.askPlayersInfo()
 
     while True:
+        table.printNewRound()
         table.askPlayersBets()
         table.dealInitialHands()
         table.askPlayersActions()
@@ -344,4 +378,5 @@ if __name__ == "__main__":
         table.concludeRound()
         if table.checkGameEnd():
             print "The Casino took all your Money!"
+            table.printEndingStats()
             exit(0)
